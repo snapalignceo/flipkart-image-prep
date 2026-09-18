@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Prep for Flipkart</title>
+<meta name="description" content="Batch-resize and pad product photos to Flipkart's main-image spec: 2000×2000, pure white background, JPEG Q85. Runs entirely in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F4F1;
+    --surface:#FFFFFF;
+    --surface-2:#FAFAF8;
+    --ink:#14171A;
+    --ink-muted:#5B6169;
+    --accent:#FF5A36;
+    --accent-ink:#FFFFFF;
+    --line:#DFE1E6;
+    --success:#1E8E5A;
+    --success-bg:#E8F5EE;
+    --warn:#B4680A;
+    --warn-bg:#FBF0DF;
+    --shadow: 0 1px 2px rgba(20,23,26,0.06), 0 8px 24px -12px rgba(20,23,26,0.18);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14171A; --surface:#1D2126; --surface-2:#20242A; --ink:#F3F4F1;
+      --ink-muted:#9BA1A8; --accent:#FF6B47; --accent-ink:#14171A; --line:#2A2F35;
+      --success:#57C58A; --success-bg:#173226; --warn:#E3A63D; --warn-bg:#332510;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14171A; --surface:#1D2126; --surface-2:#20242A; --ink:#F3F4F1;
+    --ink-muted:#9BA1A8; --accent:#FF6B47; --accent-ink:#14171A; --line:#2A2F35;
+    --success:#57C58A; --success-bg:#173226; --warn:#E3A63D; --warn-bg:#332510;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    color-scheme: dark;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--bg); }
+  body{
+    color:var(--ink);
+    font-family:'Work Sans', system-ui, -apple-system, sans-serif;
+    padding-inline:20px;
+    padding-block:32px 64px;
+    max-width:1040px;
+    margin:0 auto;
+  }
+  h1,h2,h3{ font-family:'Sora', system-ui, sans-serif; margin:0; text-wrap:balance; }
+  .mono{ font-family:'IBM Plex Mono', ui-monospace, monospace; }
+  header{ display:flex; flex-direction:column; gap:14px; margin-bottom:28px; }
+  .eyebrow{ font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); font-weight:500; }
+  h1{ font-size:clamp(26px,4vw,34px); font-weight:700; line-height:1.15; }
+  .sub{ color:var(--ink-muted); font-size:15px; max-width:60ch; line-height:1.55; }
+  .spec-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+  .chip{ display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:6px 12px; font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--ink); }
+  .chip b{ font-weight:500; color:var(--ink-muted); }
+  .note{ display:flex; gap:10px; align-items:flex-start; background:var(--warn-bg); border:1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius:10px; padding:12px 14px; font-size:13.5px; color:var(--ink); line-height:1.5; margin-top:6px; }
+  .note svg{ flex:none; margin-top:2px; }
+  .note b{ color:var(--warn); }
+  #dropzone{ border:2px dashed var(--line); border-radius:16px; background:var(--surface); padding:36px 20px; text-align:center; cursor:pointer; transition:border-color .15s ease, background .15s ease; }
+  #dropzone.drag{ border-color:var(--accent); background:var(--surface-2); }
+  #dropzone svg{ margin-bottom:10px; color:var(--ink-muted); }
+  #dropzone .dz-title{ font-family:'Sora', sans-serif; font-weight:600; font-size:16px; }
+  #dropzone .dz-sub{ color:var(--ink-muted); font-size:13.5px; margin-top:4px; }
+  #fileInput{ display:none; }
+  #status{ margin-top:14px; font-size:13.5px; color:var(--ink-muted); min-height:18px; }
+  .toolbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin:28px 0 14px; }
+  .toolbar h2{ font-size:17px; font-weight:600; }
+  .count{ color:var(--ink-muted); font-weight:400; font-family:'IBM Plex Mono',monospace; font-size:14px; }
+  button{ font-family:'Sora', sans-serif; font-weight:600; font-size:13.5px; border-radius:9px; border:1px solid var(--line); padding:9px 16px; cursor:pointer; background:var(--surface); color:var(--ink); transition:transform .08s ease, background .15s ease, border-color .15s ease; }
+  button:hover{ border-color:var(--ink-muted); }
+  button:active{ transform:scale(.98); }
+  button:disabled{ opacity:.45; cursor:not-allowed; }
+  button.primary{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  button.primary:hover{ filter:brightness(1.05); }
+  button.ghost{ background:transparent; }
+  #grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; }
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); display:flex; flex-direction:column; }
+  .card .thumb{
+    aspect-ratio:1/1; width:100%;
+    background:
+      linear-gradient(45deg, var(--surface-2) 25%, transparent 25%) 0 0/16px 16px,
+      linear-gradient(-45deg, var(--surface-2) 25%, transparent 25%) 0 0/16px 16px,
+      linear-gradient(45deg, transparent 75%, var(--surface-2) 75%) 0 0/16px 16px,
+      linear-gradient(-45deg, transparent 75%, var(--surface-2) 75%) 0 0/16px 16px;
+    background-color:var(--surface);
+    display:flex; align-items:center; justify-content:center; position:relative;
+  }
+  .card .thumb img{ width:100%; height:100%; object-fit:contain; display:block; }
+  .card .thumb .spinner{ width:22px; height:22px; border-radius:50%; border:2.5px solid var(--line); border-top-color:var(--accent); animation:spin .8s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .card .meta{ padding:10px 12px 12px; display:flex; flex-direction:column; gap:8px; flex:1; }
+  .card .name{ font-size:13px; font-weight:500; word-break:break-all; line-height:1.35; }
+  .card .dims{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--ink-muted); display:flex; justify-content:space-between; gap:6px; }
+  .badge{ display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:500; padding:3px 8px; border-radius:999px; width:fit-content; }
+  .badge.ok{ background:var(--success-bg); color:var(--success); }
+  .card .save-btn{ margin-top:auto; }
+  .card .save-btn a, .card .save-btn button{ width:100%; padding:8px; font-size:12.5px; display:block; text-align:center; text-decoration:none; box-sizing:border-box; }
+  footer{ margin-top:44px; padding-top:18px; border-top:1px solid var(--line); color:var(--ink-muted); font-size:12.5px; line-height:1.6; }
+  footer a{ color:var(--ink-muted); }
+  @media (max-width:480px){ header{ margin-bottom:22px; } #dropzone{ padding:26px 14px; } .toolbar{ margin-top:22px; } }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="eyebrow">Marketplace listing photos</span>
+  <h1>Image Prep for Flipkart</h1>
+  <p class="sub">Drop your product photos here. Each one is centered on a pure-white 2000×2000 canvas, scaled to fill about 85% of the frame, and exported as a Flipkart-spec JPEG — ready to save straight to your listing folder. Runs entirely in your browser — nothing is uploaded anywhere.</p>
+  <div class="spec-row">
+    <span class="chip"><b>Size</b>&nbsp;2000×2000</span>
+    <span class="chip"><b>Format</b>&nbsp;JPEG</span>
+    <span class="chip"><b>Background</b>&nbsp;#FFFFFF</span>
+    <span class="chip"><b>Quality</b>&nbsp;85</span>
+    <span class="chip"><b>Coverage</b>&nbsp;~85% of frame</span>
+  </div>
+  <div class="note">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1L15 14H1L8 1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6V9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.3" r="0.9" fill="currentColor"/></svg>
+    <span><b>Note:</b> this pads and resizes — it doesn't cut out a busy background. If your photo wasn't shot on white, you'll get white bars around it rather than a clean cutout. For a true background swap, photograph on a plain white or light backdrop before uploading here.</span>
+  </div>
+</header>
+
+<div id="dropzone" tabindex="0" role="button" aria-label="Upload photos">
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 15V4M12 4L8 8M12 4L16 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15V17.5C4 18.8807 5.11929 20 6.5 20H17.5C18.8807 20 20 18.8807 20 17.5V15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+  <div class="dz-title">Drop photos, or click to browse</div>
+  <div class="dz-sub">JPEG, PNG, WEBP — any size, as many as you like</div>
+  <input id="fileInput" type="file" accept="image/*" multiple>
+</div>
+<div id="status"></div>
+
+<div id="toolbarWrap" hidden>
+  <div class="toolbar">
+    <h2>Processed <span class="count mono" id="countLabel">0</span></h2>
+    <div style="display:flex; gap:8px;">
+      <button class="ghost" id="clearBtn">Clear all</button>
+      <button class="primary" id="saveAllBtn" disabled>Download all as ZIP</button>
+    </div>
+  </div>
+  <div id="grid"></div>
+</div>
+
+<footer>
+  Processing happens entirely on this page — your photos never leave your browser. Built for Flipkart's main-image spec (2000×2000px, pure-white background, JPEG, quality 85, product filling ~85% of frame). Open source — <a href="https://github.com/">edit on GitHub</a>.
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var TARGET = 2000;
+  var COVERAGE = 0.85;
+  var QUALITY = 0.85;
+
+  var dropzone = document.getElementById('dropzone');
+  var fileInput = document.getElementById('fileInput');
+  var statusEl = document.getElementById('status');
+  var toolbarWrap = document.getElementById('toolbarWrap');
+  var grid = document.getElementById('grid');
+  var countLabel = document.getElementById('countLabel');
+  var saveAllBtn = document.getElementById('saveAllBtn');
+  var clearBtn = document.getElementById('clearBtn');
+
+  var items = [];
+
+  function updateSaveAllState(){
+    var doneCount = items.filter(function(i){ return i.status === 'done'; }).length;
+    saveAllBtn.disabled = doneCount === 0;
+    saveAllBtn.textContent = doneCount > 1 ? ('Download all as ZIP (' + doneCount + ')') : 'Download all as ZIP';
+  }
+
+  function humanKB(bytes){ return Math.round(bytes/1024) + ' KB'; }
+  function baseName(name){ var dot = name.lastIndexOf('.'); return dot > 0 ? name.slice(0, dot) : name; }
+
+  function downloadBlob(blob, filename){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  }
+
+  function makeCard(name){
+    var card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML =
+      '<div class="thumb"><div class="spinner"></div></div>' +
+      '<div class="meta">' +
+        '<div class="name">' + name.replace(/</g,'&lt;') + '</div>' +
+        '<div class="dims mono"><span class="dimsText">processing…</span></div>' +
+        '<div class="save-btn"><button disabled>Download</button></div>' +
+      '</div>';
+    grid.appendChild(card);
+    return card;
+  }
+
+  function processFile(file){
+    var id = Math.random().toString(36).slice(2);
+    var card = makeCard(file.name);
+    var record = { id:id, name:file.name, card:card, status:'processing' };
+    items.push(record);
+    toolbarWrap.hidden = false;
+    countLabel.textContent = String(items.length);
+
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function(){
+      URL.revokeObjectURL(url);
+      try{
+        var canvas = document.createElement('canvas');
+        canvas.width = TARGET; canvas.height = TARGET;
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0,0,TARGET,TARGET);
+
+        var maxDim = TARGET * COVERAGE;
+        var scale = Math.min(maxDim / img.width, maxDim / img.height);
+        var w = img.width * scale, h = img.height * scale;
+        var x = (TARGET - w) / 2, y = (TARGET - h) / 2;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, x, y, w, h);
+
+        canvas.toBlob(function(blob){
+          if(!blob){ markError(record, 'Could not encode image'); return; }
+          record.blob = blob; record.status = 'done';
+          record.outName = baseName(file.name) + '-2000x2000.jpg';
+          renderDone(record, canvas.toDataURL('image/jpeg', 0.6), blob.size);
+          updateSaveAllState();
+        }, 'image/jpeg', QUALITY);
+      }catch(e){
+        markError(record, 'Processing failed');
+      }
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); markError(record, 'Could not read image'); };
+    img.src = url;
+  }
+
+  function markError(record, msg){
+    record.status = 'error';
+    var thumb = record.card.querySelector('.thumb');
+    thumb.innerHTML = ''; thumb.style.color = 'var(--warn)'; thumb.textContent = '⚠';
+    record.card.querySelector('.dimsText').textContent = msg;
+    updateSaveAllState();
+  }
+
+  function renderDone(record, dataUrl, sizeBytes){
+    var thumb = record.card.querySelector('.thumb');
+    thumb.innerHTML = '<img src="' + dataUrl + '" alt="">';
+    var dims = record.card.querySelector('.dimsText');
+    dims.parentElement.innerHTML = '<span>2000×2000</span><span>' + humanKB(sizeBytes) + '</span>';
+    var badge = document.createElement('span');
+    badge.className = 'badge ok';
+    badge.textContent = '✓ ready';
+    record.card.querySelector('.meta').insertBefore(badge, record.card.querySelector('.dims'));
+
+    var btnWrap = record.card.querySelector('.save-btn');
+    var btn = btnWrap.querySelector('button');
+    btn.disabled = false;
+    btn.textContent = 'Download';
+    btn.onclick = function(){ downloadBlob(record.blob, record.outName); };
+  }
+
+  saveAllBtn.addEventListener('click', async function(){
+    var done = items.filter(function(i){ return i.status === 'done'; });
+    if(done.length === 0) return;
+    saveAllBtn.disabled = true;
+    var original = saveAllBtn.textContent;
+    saveAllBtn.textContent = 'Zipping…';
+    try{
+      var zip = new JSZip();
+      done.forEach(function(i){ zip.file(i.outName, i.blob); });
+      var zipBlob = await zip.generateAsync({ type:'blob', compression:'DEFLATE', compressionOptions:{level:6} });
+      downloadBlob(zipBlob, 'flipkart-images.zip');
+    }finally{
+      setTimeout(function(){ updateSaveAllState(); }, 400);
+    }
+  });
+
+  clearBtn.addEventListener('click', function(){
+    items = []; grid.innerHTML = ''; toolbarWrap.hidden = true; statusEl.textContent = '';
+  });
+
+  function handleFiles(fileList){
+    var files = Array.prototype.filter.call(fileList, function(f){ return f.type.indexOf('image/') === 0; });
+    if(files.length === 0){ statusEl.textContent = 'No image files found in that selection.'; return; }
+    statusEl.textContent = '';
+    files.forEach(processFile);
+  }
+
+  dropzone.addEventListener('click', function(){ fileInput.click(); });
+  dropzone.addEventListener('keydown', function(e){ if(e.key === 'Enter' || e.key === ' '){ fileInput.click(); } });
+  fileInput.addEventListener('change', function(e){ handleFiles(e.target.files); fileInput.value = ''; });
+
+  ['dragenter','dragover'].forEach(function(evt){
+    dropzone.addEventListener(evt, function(e){ e.preventDefault(); dropzone.classList.add('drag'); });
+  });
+  ['dragleave','drop'].forEach(function(evt){
+    dropzone.addEventListener(evt, function(e){ e.preventDefault(); dropzone.classList.remove('drag'); });
+  });
+  dropzone.addEventListener('drop', function(e){
+    e.preventDefault();
+    if(e.dataTransfer && e.dataTransfer.files) handleFiles(e.dataTransfer.files);
+  });
+})();
+</script>
+</body>
+</html>
