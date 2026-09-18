@@ -63,6 +63,9 @@
   .note{ display:flex; gap:10px; align-items:flex-start; background:var(--warn-bg); border:1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius:10px; padding:12px 14px; font-size:13.5px; color:var(--ink); line-height:1.5; margin-top:6px; }
   .note svg{ flex:none; margin-top:2px; }
   .note b{ color:var(--warn); }
+  .align-row{ display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink); margin-top:2px; }
+  .align-row input{ width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
+  .align-row label{ cursor:pointer; }
   #dropzone{ border:2px dashed var(--line); border-radius:16px; background:var(--surface); padding:36px 20px; text-align:center; cursor:pointer; transition:border-color .15s ease, background .15s ease; }
   #dropzone.drag{ border-color:var(--accent); background:var(--surface-2); }
   #dropzone svg{ margin-bottom:10px; color:var(--ink-muted); }
@@ -112,7 +115,7 @@
 <header>
   <span class="eyebrow">Marketplace listing photos</span>
   <h1>Image Prep for Flipkart</h1>
-  <p class="sub">Drop your product photos here. Each one is centered on a pure-white 2000×2000 canvas, scaled to fill about 85% of the frame, and exported as a Flipkart-spec JPEG — ready to save straight to your listing folder. Runs entirely in your browser — nothing is uploaded anywhere.</p>
+  <p class="sub">Drop your product photos here. Each one is auto-detected, centered, and scaled so the product lands at the same size and position on a pure-white 2000×2000 canvas across your whole batch, then exported as a Flipkart-spec JPEG — ready to save straight to your listing folder. Runs entirely in your browser — nothing is uploaded anywhere.</p>
   <div class="spec-row">
     <span class="chip"><b>Size</b>&nbsp;2000×2000</span>
     <span class="chip"><b>Format</b>&nbsp;JPEG</span>
@@ -120,9 +123,13 @@
     <span class="chip"><b>Quality</b>&nbsp;85</span>
     <span class="chip"><b>Coverage</b>&nbsp;~85% of frame</span>
   </div>
+  <div class="align-row">
+    <input type="checkbox" id="alignToggle" checked>
+    <label for="alignToggle">Auto-align: detect the product in each photo and place it the same size &amp; position across all images</label>
+  </div>
   <div class="note">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1L15 14H1L8 1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6V9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.3" r="0.9" fill="currentColor"/></svg>
-    <span><b>Note:</b> this pads and resizes — it doesn't cut out a busy background. If your photo wasn't shot on white, you'll get white bars around it rather than a clean cutout. For a true background swap, photograph on a plain white or light backdrop before uploading here.</span>
+    <span><b>Note:</b> this pads and resizes — it doesn't cut out a busy background. If your photo wasn't shot on a plain, even-colored background, auto-align may miscrop it. For best results, and for a true background swap, photograph on a plain white or light backdrop before uploading here.</span>
   </div>
 </header>
 
@@ -166,8 +173,75 @@
   var countLabel = document.getElementById('countLabel');
   var saveAllBtn = document.getElementById('saveAllBtn');
   var clearBtn = document.getElementById('clearBtn');
+  var alignToggle = document.getElementById('alignToggle');
 
   var items = [];
+
+  function detectProductBBox(img){
+    try{
+      var maxDet = 640;
+      var scale = Math.min(1, maxDet / Math.max(img.width, img.height));
+      var dw = Math.max(1, Math.round(img.width * scale));
+      var dh = Math.max(1, Math.round(img.height * scale));
+      var dc = document.createElement('canvas');
+      dc.width = dw; dc.height = dh;
+      var dctx = dc.getContext('2d');
+      dctx.drawImage(img, 0, 0, dw, dh);
+      var data = dctx.getImageData(0, 0, dw, dh).data;
+
+      var block = Math.max(2, Math.round(Math.min(dw, dh) * 0.04));
+      function avgAt(x0, y0){
+        var r=0,g=0,b=0,n=0;
+        for(var y=y0; y<Math.min(dh, y0+block); y++){
+          for(var x=x0; x<Math.min(dw, x0+block); x++){
+            var i = (y*dw+x)*4;
+            r += data[i]; g += data[i+1]; b += data[i+2]; n++;
+          }
+        }
+        return n ? [r/n, g/n, b/n] : [255,255,255];
+      }
+      var corners = [
+        avgAt(0,0), avgAt(dw-block,0), avgAt(0,dh-block), avgAt(dw-block,dh-block)
+      ];
+      var bg = [
+        (corners[0][0]+corners[1][0]+corners[2][0]+corners[3][0])/4,
+        (corners[0][1]+corners[1][1]+corners[2][1]+corners[3][1])/4,
+        (corners[0][2]+corners[1][2]+corners[2][2]+corners[3][2])/4
+      ];
+
+      var threshold = 28;
+      var minX = dw, minY = dh, maxX = -1, maxY = -1;
+      for(var y = 0; y < dh; y++){
+        for(var x = 0; x < dw; x++){
+          var idx = (y*dw+x)*4;
+          var a = data[idx+3];
+          if(a < 16) continue;
+          var dr = data[idx]-bg[0], dg = data[idx+1]-bg[1], db = data[idx+2]-bg[2];
+          var dist = Math.sqrt(dr*dr + dg*dg + db*db);
+          if(dist > threshold){
+            if(x < minX) minX = x;
+            if(x > maxX) maxX = x;
+            if(y < minY) minY = y;
+            if(y > maxY) maxY = y;
+          }
+        }
+      }
+      if(maxX < minX || maxY < minY) return null;
+
+      var padX = (maxX - minX) * 0.04;
+      var padY = (maxY - minY) * 0.04;
+      minX = Math.max(0, minX - padX); minY = Math.max(0, minY - padY);
+      maxX = Math.min(dw, maxX + padX); maxY = Math.min(dh, maxY + padY);
+
+      var inv = 1 / scale;
+      var bx = minX * inv, by = minY * inv;
+      var bw = (maxX - minX) * inv, bh = (maxY - minY) * inv;
+      if(bw < 4 || bh < 4) return null;
+      return { x: bx, y: by, w: bw, h: bh };
+    }catch(e){
+      return null;
+    }
+  }
 
   function updateSaveAllState(){
     var doneCount = items.filter(function(i){ return i.status === 'done'; }).length;
@@ -220,13 +294,18 @@
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0,0,TARGET,TARGET);
 
+        var bbox = alignToggle.checked ? detectProductBBox(img) : null;
+        var sx, sy, sw, sh;
+        if(bbox){ sx = bbox.x; sy = bbox.y; sw = bbox.w; sh = bbox.h; }
+        else{ sx = 0; sy = 0; sw = img.width; sh = img.height; }
+
         var maxDim = TARGET * COVERAGE;
-        var scale = Math.min(maxDim / img.width, maxDim / img.height);
-        var w = img.width * scale, h = img.height * scale;
+        var scale = Math.min(maxDim / sw, maxDim / sh);
+        var w = sw * scale, h = sh * scale;
         var x = (TARGET - w) / 2, y = (TARGET - h) / 2;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, x, y, w, h);
+        ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 
         canvas.toBlob(function(blob){
           if(!blob){ markError(record, 'Could not encode image'); return; }
