@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Image Prep for Flipkart</title>
-<meta name="description" content="Batch-resize and pad product photos to Flipkart's main-image spec: 2000×2000, pure white background, JPEG Q85. Runs entirely in your browser.">
+<meta name="description" content="Batch-resize and pad product photos to Flipkart's main-image spec: 2000×2000, pure white background, JPEG Q85 — plus AI category &amp; color tagging. Runs entirely in your browser.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -22,6 +22,8 @@
     --success-bg:#E8F5EE;
     --warn:#B4680A;
     --warn-bg:#FBF0DF;
+    --info:#2B6CB0;
+    --info-bg:#E7F0FA;
     --shadow: 0 1px 2px rgba(20,23,26,0.06), 0 8px 24px -12px rgba(20,23,26,0.18);
     color-scheme: light;
   }
@@ -30,6 +32,7 @@
       --bg:#14171A; --surface:#1D2126; --surface-2:#20242A; --ink:#F3F4F1;
       --ink-muted:#9BA1A8; --accent:#FF6B47; --accent-ink:#14171A; --line:#2A2F35;
       --success:#57C58A; --success-bg:#173226; --warn:#E3A63D; --warn-bg:#332510;
+      --info:#6AA6E0; --info-bg:#182A3A;
       --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
       color-scheme: dark;
     }
@@ -38,6 +41,7 @@
     --bg:#14171A; --surface:#1D2126; --surface-2:#20242A; --ink:#F3F4F1;
     --ink-muted:#9BA1A8; --accent:#FF6B47; --accent-ink:#14171A; --line:#2A2F35;
     --success:#57C58A; --success-bg:#173226; --warn:#E3A63D; --warn-bg:#332510;
+    --info:#6AA6E0; --info-bg:#182A3A;
     --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
     color-scheme: dark;
   }
@@ -63,6 +67,8 @@
   .note{ display:flex; gap:10px; align-items:flex-start; background:var(--warn-bg); border:1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius:10px; padding:12px 14px; font-size:13.5px; color:var(--ink); line-height:1.5; margin-top:6px; }
   .note svg{ flex:none; margin-top:2px; }
   .note b{ color:var(--warn); }
+  .note.info{ background:var(--info-bg); border-color:color-mix(in srgb, var(--info) 35%, transparent); }
+  .note.info b{ color:var(--info); }
   .align-row{ display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink); margin-top:2px; }
   .align-row input{ width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
   .align-row label{ cursor:pointer; }
@@ -103,6 +109,12 @@
   .card .dims{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--ink-muted); display:flex; justify-content:space-between; gap:6px; }
   .badge{ display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:500; padding:3px 8px; border-radius:999px; width:fit-content; }
   .badge.ok{ background:var(--success-bg); color:var(--success); }
+  .badge.ai{ background:var(--info-bg); color:var(--info); }
+  .tag-row{ display:flex; flex-wrap:wrap; gap:6px; }
+  .swatch{ width:9px; height:9px; border-radius:50%; display:inline-block; border:1px solid rgba(0,0,0,.15); }
+  .field{ display:flex; flex-direction:column; gap:3px; }
+  .field label{ font-size:10.5px; color:var(--ink-muted); text-transform:uppercase; letter-spacing:.04em; }
+  .field select{ font-family:'Work Sans', sans-serif; font-size:12px; padding:6px 7px; border-radius:7px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); }
   .card .save-btn{ margin-top:auto; }
   .card .save-btn a, .card .save-btn button{ width:100%; padding:8px; font-size:12.5px; display:block; text-align:center; text-decoration:none; box-sizing:border-box; }
   footer{ margin-top:44px; padding-top:18px; border-top:1px solid var(--line); color:var(--ink-muted); font-size:12.5px; line-height:1.6; }
@@ -115,7 +127,7 @@
 <header>
   <span class="eyebrow">Marketplace listing photos</span>
   <h1>Image Prep for Flipkart</h1>
-  <p class="sub">Drop your product photos here. Each one is auto-detected, centered, and scaled so the product lands at the same size and position on a pure-white 2000×2000 canvas across your whole batch, then exported as a Flipkart-spec JPEG — ready to save straight to your listing folder. Runs entirely in your browser — nothing is uploaded anywhere.</p>
+  <p class="sub">Drop your product photos here. Each one is auto-detected, centered, and scaled so the product lands at the same size and position on a pure-white 2000×2000 canvas across your whole batch, then exported as a Flipkart-spec JPEG — ready to save straight to your listing folder. An in-browser AI model also suggests a category and color for each photo, so you can tag a batch of listings faster. Runs entirely in your browser — nothing is uploaded anywhere.</p>
   <div class="spec-row">
     <span class="chip"><b>Size</b>&nbsp;2000×2000</span>
     <span class="chip"><b>Format</b>&nbsp;JPEG</span>
@@ -127,9 +139,25 @@
     <input type="checkbox" id="alignToggle" checked>
     <label for="alignToggle">Auto-align: detect the product in each photo and place it the same size &amp; position across all images</label>
   </div>
+  <div class="align-row">
+    <input type="checkbox" id="whiteBgToggle" checked>
+    <label for="whiteBgToggle">True white background: replace the backdrop color (e.g. grey/beige/marble) with pure white, not just the empty margins</label>
+  </div>
+  <div class="align-row">
+    <input type="checkbox" id="aiToggle" checked>
+    <label for="aiToggle">AI tagging: suggest a category and color for each photo (loads a small on-device model the first time, ~5–10&nbsp;MB, from a public CDN)</label>
+  </div>
+  <div class="note">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1L15 14H1L8 1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6V9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.3" r="0.9" fill="currentColor"/></svg>
+    <span><b>About true white background:</b> it replaces only pixels that closely match the backdrop color sampled from this photo's own corners — never a guess about shape or position. If a background pixel isn't a close match (e.g. a strong shadow or vignette), it's left as-is rather than forced white, so the worst case is a background that's only partly whitened. The one real limitation: a product color very close to the backdrop (an off-white or cream product on a light-grey backdrop, say) may also get lightened, since color alone can't tell those apart — check the result and turn this off for that specific batch if it happens.</span>
+  </div>
   <div class="note">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1L15 14H1L8 1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6V9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.3" r="0.9" fill="currentColor"/></svg>
     <span><b>Note:</b> this pads and resizes — it doesn't cut out a busy background. If your photo wasn't shot on a plain, even-colored background, auto-align may miscrop it. For best results, and for a true background swap, photograph on a plain white or light backdrop before uploading here.</span>
+  </div>
+  <div class="note info">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.3V11.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="5" r="0.9" fill="currentColor"/></svg>
+    <span><b>About AI tagging:</b> category and color are suggestions from a general-purpose on-device image model (MobileNet) plus a color-averaging step — not a model trained on your specific catalog. They're a starting point to speed up bulk tagging, not a final answer: always review the dropdown on each card before you use it in a listing. The model itself downloads once from a public CDN; your photos still never leave the browser.</span>
   </div>
 </header>
 
@@ -140,12 +168,14 @@
   <input id="fileInput" type="file" accept="image/*" multiple>
 </div>
 <div id="status"></div>
+<button class="ghost" id="retryAiBtn" hidden style="margin-top:8px;">Retry AI tagging</button>
 
 <div id="toolbarWrap" hidden>
   <div class="toolbar">
     <h2>Processed <span class="count mono" id="countLabel">0</span></h2>
-    <div style="display:flex; gap:8px;">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <button class="ghost" id="clearBtn">Clear all</button>
+      <button class="ghost" id="exportTagsBtn" disabled>Export tags (CSV)</button>
       <button class="primary" id="saveAllBtn" disabled>Download all as ZIP</button>
     </div>
   </div>
@@ -153,7 +183,7 @@
 </div>
 
 <footer>
-  Processing happens entirely on this page — your photos never leave your browser. Built for Flipkart's main-image spec (2000×2000px, pure-white background, JPEG, quality 85, product filling ~85% of frame). Open source — <a href="https://github.com/">edit on GitHub</a>.
+  Processing happens entirely on this page — your photos never leave your browser. Built for Flipkart's main-image spec (2000×2000px, pure-white background, JPEG, quality 85, product filling ~85% of frame), with optional AI category/color suggestions to speed up bulk tagging for Flipkart and Meesho listings. Open source — <a href="https://github.com/">edit on GitHub</a>.
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -173,11 +203,53 @@
   var countLabel = document.getElementById('countLabel');
   var saveAllBtn = document.getElementById('saveAllBtn');
   var clearBtn = document.getElementById('clearBtn');
+  var exportTagsBtn = document.getElementById('exportTagsBtn');
   var alignToggle = document.getElementById('alignToggle');
+  var whiteBgToggle = document.getElementById('whiteBgToggle');
+  var aiToggle = document.getElementById('aiToggle');
+  var retryAiBtn = document.getElementById('retryAiBtn');
 
   var items = [];
 
-  function detectProductBBox(img){
+  // ---------- Robust image decoding ----------
+  // The plain `new Image()` + object-URL path fails to decode a small
+  // minority of real-world JPEGs (unusual color profiles, some camera/app
+  // exports) with no useful error. Fall back through a couple of other
+  // decode paths before giving up, so a photo that's actually fine doesn't
+  // get rejected just because the fastest path choked on it.
+  function decodeImage(file){
+    return new Promise(function(resolve, reject){
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function(){ URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = function(){
+        URL.revokeObjectURL(url);
+        var reader = new FileReader();
+        reader.onload = function(){
+          var img2 = new Image();
+          img2.onload = function(){ resolve(img2); };
+          img2.onerror = function(){ tryImageBitmap(); };
+          img2.src = reader.result;
+        };
+        reader.onerror = function(){ tryImageBitmap(); };
+        reader.readAsDataURL(file);
+        function tryImageBitmap(){
+          if(typeof createImageBitmap === 'function'){
+            createImageBitmap(file).then(resolve).catch(function(){
+              reject(new Error('This image could not be decoded by the browser. Try re-saving/exporting it as a standard JPEG or PNG (e.g. open it in any photo editor and re-save) and upload again.'));
+            });
+          } else {
+            reject(new Error('This image could not be decoded by the browser. Try re-saving/exporting it as a standard JPEG or PNG and upload again.'));
+          }
+        }
+      };
+      img.src = url;
+    });
+  }
+
+  // ---------- Product detection (background/foreground split) ----------
+
+  function detectProduct(img){
     try{
       var maxDet = 640;
       var scale = Math.min(1, maxDet / Math.max(img.width, img.height));
@@ -211,6 +283,9 @@
 
       var threshold = 28;
       var minX = dw, minY = dh, maxX = -1, maxY = -1;
+      // running stats for foreground color (for color-tag detection)
+      var fr=0, fg=0, fb=0, fn=0;
+      var fr2=0, fg2=0, fb2=0;
       for(var y = 0; y < dh; y++){
         for(var x = 0; x < dw; x++){
           var idx = (y*dw+x)*4;
@@ -223,10 +298,14 @@
             if(x > maxX) maxX = x;
             if(y < minY) minY = y;
             if(y > maxY) maxY = y;
+            var R = data[idx], G = data[idx+1], B = data[idx+2];
+            fr += R; fg += G; fb += B;
+            fr2 += R*R; fg2 += G*G; fb2 += B*B;
+            fn++;
           }
         }
       }
-      if(maxX < minX || maxY < minY) return null;
+      if(maxX < minX || maxY < minY) return { bbox:null, color:null, bg:bg };
 
       var padX = (maxX - minX) * 0.04;
       var padY = (maxY - minY) * 0.04;
@@ -236,17 +315,250 @@
       var inv = 1 / scale;
       var bx = minX * inv, by = minY * inv;
       var bw = (maxX - minX) * inv, bh = (maxY - minY) * inv;
-      if(bw < 4 || bh < 4) return null;
-      return { x: bx, y: by, w: bw, h: bh };
+      var bbox = (bw < 4 || bh < 4) ? null : { x: bx, y: by, w: bw, h: bh };
+
+      var color = null;
+      if(fn > 0){
+        var meanR = fr/fn, meanG = fg/fn, meanB = fb/fn;
+        var varR = Math.max(0, fr2/fn - meanR*meanR);
+        var varG = Math.max(0, fg2/fn - meanG*meanG);
+        var varB = Math.max(0, fb2/fn - meanB*meanB);
+        var stdev = Math.sqrt((varR+varG+varB)/3);
+        color = { r: meanR, g: meanG, b: meanB, stdev: stdev };
+      }
+      return { bbox: bbox, color: color, bg: bg };
     }catch(e){
-      return null;
+      return { bbox:null, color:null, bg:null };
     }
   }
+
+  // ---------- True white background ----------
+  // Padding the margins white (above) doesn't touch the backdrop *within*
+  // the cropped region — a grey/beige/marble backdrop in the original photo
+  // stays grey there. This replaces any pixel close to the sampled
+  // background color with pure white, wherever it appears (including deep
+  // inside the crop, unlike the enclosed-hole feature this replaces —
+  // there's no "is it enclosed" guesswork here, just a direct color match
+  // against the backdrop actually sampled from this photo's corners).
+  // Known, unavoidable limitation: a product color very close to the
+  // backdrop color (e.g. an off-white or cream product on a light-grey
+  // backdrop) will partly whiten too — there's no way to tell those apart
+  // from color alone. When in doubt this errs conservatively: a background
+  // pixel that isn't a close enough match is just left as-is (grey stays
+  // grey) rather than guessed at, so the failure mode is incomplete
+  // whitening, never eating into the product.
+  function whitenBackground(img, bg, threshold){
+    if(!bg) return null;
+    var w = img.width, h = img.height;
+    var working = document.createElement('canvas');
+    working.width = w; working.height = h;
+    var wctx = working.getContext('2d', { willReadFrequently: true });
+    wctx.drawImage(img, 0, 0);
+    var imgData = wctx.getImageData(0, 0, w, h);
+    var data = imgData.data;
+    var n = w * h;
+    var changed = 0;
+    for(var idx = 0; idx < n; idx++){
+      var i = idx * 4;
+      var dr = data[i]-bg[0], dg = data[i+1]-bg[1], db = data[i+2]-bg[2];
+      var dist = Math.sqrt(dr*dr + dg*dg + db*db);
+      if(dist < threshold){
+        data[i] = 255; data[i+1] = 255; data[i+2] = 255;
+        changed++;
+      }
+    }
+    if(changed === 0) return null;
+    wctx.putImageData(imgData, 0, 0);
+    return working;
+  }
+
+  // ---------- Color naming ----------
+
+  var COLOR_PALETTE = [
+    ['Black',        20,  20,  20],
+    ['White',       248, 248, 248],
+    ['Grey',        128, 128, 128],
+    ['Silver',      196, 196, 200],
+    ['Gold',        212, 175,  55],
+    ['Red',         196,  30,  38],
+    ['Maroon',      115,  25,  40],
+    ['Pink',        232, 130, 165],
+    ['Orange',      230, 120,  30],
+    ['Yellow',      230, 205,  45],
+    ['Green',        45, 135,  70],
+    ['Teal',         30, 140, 140],
+    ['Blue',         45,  95, 205],
+    ['Navy Blue',    25,  40, 100],
+    ['Purple',      115,  65, 165],
+    ['Brown',       120,  80,  50],
+    ['Beige',       222, 198, 165]
+  ];
+
+  function nearestColorName(rgb){
+    var best = null, bestDist = Infinity;
+    for(var i=0; i<COLOR_PALETTE.length; i++){
+      var p = COLOR_PALETTE[i];
+      var dr = rgb.r - p[1], dg = rgb.g - p[2], db = rgb.b - p[3];
+      var dist = dr*dr + dg*dg + db*db;
+      if(dist < bestDist){ bestDist = dist; best = p[0]; }
+    }
+    return best;
+  }
+
+  function classifyColor(color){
+    if(!color) return { name: 'Unclear', hex: '#9BA1A8' };
+    if(color.stdev > 46){
+      return { name: 'Multicolor / Printed', hex: 'linear-gradient(90deg,#e85a4f,#f4b942,#3d8f6d,#3b6ba5)' };
+    }
+    var name = nearestColorName(color);
+    var hex = 'rgb(' + Math.round(color.r) + ',' + Math.round(color.g) + ',' + Math.round(color.b) + ')';
+    return { name: name, hex: hex };
+  }
+
+  // ---------- AI category model (MobileNet, loaded lazily & once) ----------
+
+  var CATEGORY_OPTIONS = [
+    'Mobile Back Cover / Case',
+    'Mobile Cover with Keychain',
+    'Keychain / Bag Charm',
+    'Phone Grip / Pop Socket',
+    'Screen Protector / Tempered Glass',
+    'Camera Lens Protector',
+    'Charging Cable / Adapter',
+    'Other Mobile Accessory',
+    'Uncategorized'
+  ];
+
+  // Loose keyword -> category mapping from MobileNet's ImageNet labels.
+  // MobileNet is a general-purpose model, not trained on this catalog, so
+  // this is a best-effort suggestion, surfaced with its confidence and
+  // always editable in the UI.
+  var CATEGORY_KEYWORDS = [
+    ['Mobile Back Cover / Case', ['cellular telephone', 'ipod', 'modem', 'remote control', 'wallet', 'purse', 'billfold', 'pencil box', 'pencil case']],
+    ['Keychain / Bag Charm', ['whistle', 'harmonica', 'combination lock', 'padlock', 'chain', 'necklace', 'dog collar', 'can opener', 'screwdriver', 'safety pin', 'buckle', 'key']],
+    ['Phone Grip / Pop Socket', ['joystick', 'switch', 'knob', 'suction cap']],
+    ['Camera Lens Protector', ['sunglass', 'sunglasses', 'lens cap', 'reflex camera', 'compact disc']],
+    ['Screen Protector / Tempered Glass', ['envelope', 'book jacket', 'menu', 'greeting card', 'window screen', 'mask']],
+    ['Charging Cable / Adapter', ['plug', 'extension cord', 'power drill', 'hand-held computer']]
+  ];
+
+  var mobilenetModel = null;
+  var mobilenetLoading = null;
+
+  // Multiple CDN hosts for each library, tried in order. Some networks or
+  // ad-blockers block one host (jsdelivr in particular) but not others, so
+  // falling through to an alternate host recovers automatically instead of
+  // just failing once.
+  var TF_SOURCES = [
+    'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js',
+    'https://unpkg.com/@tensorflow/tfjs@4.20.0/dist/tf.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.20.0/tf.min.js'
+  ];
+  var MOBILENET_SOURCES = [
+    'https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js',
+    'https://unpkg.com/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js'
+  ];
+
+  function loadScriptOnce(src){
+    return new Promise(function(resolve, reject){
+      var existing = document.querySelector('script[data-dynsrc="' + src + '"]');
+      if(existing){ resolve(); return; }
+      var s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.setAttribute('data-dynsrc', src);
+      s.onload = function(){ resolve(); };
+      s.onerror = function(){
+        s.parentNode && s.parentNode.removeChild(s);
+        reject(new Error('Failed to load ' + src));
+      };
+      document.head.appendChild(s);
+    });
+  }
+
+  function loadFirstWorking(urls, index){
+    index = index || 0;
+    if(index >= urls.length){
+      return Promise.reject(new Error('All sources failed'));
+    }
+    return loadScriptOnce(urls[index]).catch(function(){
+      return loadFirstWorking(urls, index + 1);
+    });
+  }
+
+  function ensureLibraries(){
+    var tfReady = (typeof tf === 'undefined') ? loadFirstWorking(TF_SOURCES) : Promise.resolve();
+    return tfReady.then(function(){
+      if(typeof mobilenet !== 'undefined') return;
+      return loadFirstWorking(MOBILENET_SOURCES);
+    });
+  }
+
+  function ensureModel(){
+    if(mobilenetModel) return Promise.resolve(mobilenetModel);
+    if(mobilenetLoading) return mobilenetLoading;
+    statusEl.textContent = 'Loading AI tagging model (first time only)…';
+    mobilenetLoading = ensureLibraries().then(function(){
+      if(typeof mobilenet === 'undefined' || typeof tf === 'undefined'){
+        throw new Error('AI libraries failed to load');
+      }
+      return mobilenet.load({ version: 2, alpha: 0.5 });
+    }).then(function(m){
+      mobilenetModel = m;
+      statusEl.textContent = '';
+      if(retryAiBtn) retryAiBtn.hidden = true;
+      return m;
+    }).catch(function(err){
+      mobilenetLoading = null;
+      statusEl.textContent = 'AI tagging model could not be loaded — category suggestions are off, everything else still works.';
+      if(retryAiBtn) retryAiBtn.hidden = false;
+      throw err;
+    });
+    return mobilenetLoading;
+  }
+
+  function mapPredictionsToCategory(predictions){
+    if(!predictions || !predictions.length){
+      return { category: 'Uncategorized', label: null, confidence: 0 };
+    }
+    for(var p=0; p<predictions.length; p++){
+      var label = predictions[p].className.toLowerCase();
+      for(var c=0; c<CATEGORY_KEYWORDS.length; c++){
+        var keywords = CATEGORY_KEYWORDS[c][1];
+        for(var k=0; k<keywords.length; k++){
+          if(label.indexOf(keywords[k]) !== -1){
+            return { category: CATEGORY_KEYWORDS[c][0], label: predictions[p].className, confidence: predictions[p].probability };
+          }
+        }
+      }
+    }
+    return { category: 'Other Mobile Accessory', label: predictions[0].className, confidence: predictions[0].probability };
+  }
+
+  function runAiTagging(record, img){
+    ensureModel().then(function(model){
+      return model.classify(img, 5);
+    }).then(function(predictions){
+      var result = mapPredictionsToCategory(predictions);
+      record.aiCategory = result.category;
+      record.aiLabel = result.label;
+      record.aiConfidence = result.confidence;
+      applyCategoryToCard(record, result.category, result);
+    }).catch(function(){
+      // Silently leave category as "Uncategorized" — the model failing to
+      // load is already reported once in the status line.
+      record.aiCategory = record.aiCategory || 'Uncategorized';
+      applyCategoryToCard(record, record.aiCategory, null);
+    });
+  }
+
+  // ---------- UI helpers ----------
 
   function updateSaveAllState(){
     var doneCount = items.filter(function(i){ return i.status === 'done'; }).length;
     saveAllBtn.disabled = doneCount === 0;
     saveAllBtn.textContent = doneCount > 1 ? ('Download all as ZIP (' + doneCount + ')') : 'Download all as ZIP';
+    exportTagsBtn.disabled = doneCount === 0;
   }
 
   function humanKB(bytes){ return Math.round(bytes/1024) + ' KB'; }
@@ -269,24 +581,71 @@
       '<div class="meta">' +
         '<div class="name">' + name.replace(/</g,'&lt;') + '</div>' +
         '<div class="dims mono"><span class="dimsText">processing…</span></div>' +
+        '<div class="tag-row tagRowEl"></div>' +
+        '<div class="field"><label>Category</label><select class="categorySelect" disabled></select></div>' +
         '<div class="save-btn"><button disabled>Download</button></div>' +
       '</div>';
     grid.appendChild(card);
     return card;
   }
 
+  function buildCategorySelect(record){
+    var select = record.card.querySelector('.categorySelect');
+    select.innerHTML = '';
+    CATEGORY_OPTIONS.forEach(function(opt){
+      var o = document.createElement('option');
+      o.value = opt; o.textContent = opt;
+      select.appendChild(o);
+    });
+    select.disabled = false;
+    select.value = record.aiCategory || 'Uncategorized';
+    select.addEventListener('change', function(){
+      record.userCategory = select.value;
+    });
+  }
+
+  function applyCategoryToCard(record, category, aiResult){
+    if(!record.card) return;
+    var select = record.card.querySelector('.categorySelect');
+    if(select.options.length === 0){
+      buildCategorySelect(record);
+    } else if(!record.userCategory){
+      select.value = category;
+    }
+    var tagRow = record.card.querySelector('.tagRowEl');
+    var existingAi = tagRow.querySelector('.badge.ai');
+    if(existingAi) existingAi.remove();
+    if(aiResult && aiResult.confidence){
+      var badge = document.createElement('span');
+      badge.className = 'badge ai';
+      badge.textContent = 'AI: ' + category + ' (' + Math.round(aiResult.confidence * 100) + '%)';
+      badge.title = 'Closest raw model label: ' + aiResult.label;
+      tagRow.appendChild(badge);
+    }
+  }
+
+  function applyColorToCard(record, colorInfo){
+    if(!record.card) return;
+    var tagRow = record.card.querySelector('.tagRowEl');
+    var badge = document.createElement('span');
+    badge.className = 'badge ok';
+    var swatch = document.createElement('span');
+    swatch.className = 'swatch';
+    swatch.style.background = colorInfo.hex;
+    badge.appendChild(swatch);
+    badge.appendChild(document.createTextNode(colorInfo.name));
+    tagRow.appendChild(badge);
+  }
+
   function processFile(file){
     var id = Math.random().toString(36).slice(2);
     var card = makeCard(file.name);
-    var record = { id:id, name:file.name, card:card, status:'processing' };
+    var record = { id:id, name:file.name, card:card, status:'processing', aiCategory:null, userCategory:null, colorName:null };
     items.push(record);
     toolbarWrap.hidden = false;
     countLabel.textContent = String(items.length);
 
-    var img = new Image();
-    var url = URL.createObjectURL(file);
-    img.onload = function(){
-      URL.revokeObjectURL(url);
+    decodeImage(file).then(function(img){
       try{
         var canvas = document.createElement('canvas');
         canvas.width = TARGET; canvas.height = TARGET;
@@ -294,10 +653,17 @@
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0,0,TARGET,TARGET);
 
-        var bbox = alignToggle.checked ? detectProductBBox(img) : null;
+        var detection = detectProduct(img);
+        var bbox = alignToggle.checked ? detection.bbox : null;
         var sx, sy, sw, sh;
         if(bbox){ sx = bbox.x; sy = bbox.y; sw = bbox.w; sh = bbox.h; }
         else{ sx = 0; sy = 0; sw = img.width; sh = img.height; }
+
+        var source = img;
+        if(whiteBgToggle.checked){
+          var whitened = whitenBackground(img, detection.bg, 30);
+          if(whitened) source = whitened;
+        }
 
         var maxDim = TARGET * COVERAGE;
         var scale = Math.min(maxDim / sw, maxDim / sh);
@@ -305,21 +671,34 @@
         var x = (TARGET - w) / 2, y = (TARGET - h) / 2;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+        ctx.drawImage(source, sx, sy, sw, sh, x, y, w, h);
 
         canvas.toBlob(function(blob){
           if(!blob){ markError(record, 'Could not encode image'); return; }
           record.blob = blob; record.status = 'done';
           record.outName = baseName(file.name) + '-2000x2000.jpg';
           renderDone(record, canvas.toDataURL('image/jpeg', 0.6), blob.size);
+
+          var colorInfo = classifyColor(detection.color);
+          record.colorName = colorInfo.name;
+          applyColorToCard(record, colorInfo);
+          buildCategorySelect(record);
+
+          record.imgRef = img;
+          if(aiToggle.checked){
+            runAiTagging(record, img);
+          } else {
+            record.aiCategory = 'Uncategorized';
+          }
+
           updateSaveAllState();
         }, 'image/jpeg', QUALITY);
       }catch(e){
         markError(record, 'Processing failed');
       }
-    };
-    img.onerror = function(){ URL.revokeObjectURL(url); markError(record, 'Could not read image'); };
-    img.src = url;
+    }).catch(function(err){
+      markError(record, (err && err.message) || 'Could not read image');
+    });
   }
 
   function markError(record, msg){
@@ -363,9 +742,50 @@
     }
   });
 
+  function csvEscape(val){
+    var s = String(val == null ? '' : val);
+    if(/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  exportTagsBtn.addEventListener('click', function(){
+    var done = items.filter(function(i){ return i.status === 'done'; });
+    if(done.length === 0) return;
+    var rows = [['filename', 'category', 'color', 'ai_confidence_pct', 'ai_raw_label']];
+    done.forEach(function(i){
+      var category = i.userCategory || i.aiCategory || 'Uncategorized';
+      rows.push([
+        i.outName,
+        category,
+        i.colorName || '',
+        i.aiConfidence ? Math.round(i.aiConfidence * 100) : '',
+        i.aiLabel || ''
+      ]);
+    });
+    var csv = rows.map(function(r){ return r.map(csvEscape).join(','); }).join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    downloadBlob(blob, 'flipkart-image-tags.csv');
+  });
+
   clearBtn.addEventListener('click', function(){
     items = []; grid.innerHTML = ''; toolbarWrap.hidden = true; statusEl.textContent = '';
   });
+
+  if(retryAiBtn){
+    retryAiBtn.addEventListener('click', function(){
+      retryAiBtn.hidden = true;
+      statusEl.textContent = 'Retrying AI tagging model…';
+      ensureModel().then(function(){
+        items.forEach(function(record){
+          if(record.status === 'done' && !record.aiConfidence && record.imgRef){
+            runAiTagging(record, record.imgRef);
+          }
+        });
+      }).catch(function(){
+        // ensureModel already updated the status text and re-shown the button.
+      });
+    });
+  }
 
   function handleFiles(fileList){
     var files = Array.prototype.filter.call(fileList, function(f){ return f.type.indexOf('image/') === 0; });
