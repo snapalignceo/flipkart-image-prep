@@ -158,6 +158,10 @@
     <label for="alignToggle">Auto-align: detect the product in each photo and place it the same size &amp; position across all images</label>
   </div>
   <div class="align-row">
+    <input type="checkbox" id="fitWholeToggle">
+    <label for="fitWholeToggle">Fit whole photo, no crop: scale the entire original photo (not just the detected product) to fit the 2000&times;2000 canvas and pad with white — nothing in the photo is cut off or changed, only resized and padded</label>
+  </div>
+  <div class="align-row">
     <input type="checkbox" id="whiteBgToggle" checked>
     <label for="whiteBgToggle">True white background: replace the backdrop color (e.g. grey/beige/marble) with pure white, not just the empty margins</label>
   </div>
@@ -168,6 +172,10 @@
   <div class="align-row">
     <input type="checkbox" id="aiToggle" checked>
     <label for="aiToggle">AI tagging: suggest a category and color for each photo (loads a small on-device model the first time, ~5–10&nbsp;MB, from a public CDN)</label>
+  </div>
+  <div class="note">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1L15 14H1L8 1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6V9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.3" r="0.9" fill="currentColor"/></svg>
+    <span><b>About fit whole photo:</b> auto-align above crops in on just the detected product and zooms it to fill ~85% of the frame. This option skips that entirely — it takes the photo exactly as uploaded and scales the whole thing down (or up) to fit inside the 2000&times;2000 square, padding whichever side is shorter with white. Nothing is cropped, redrawn, or altered, only resized as a whole and centered. Turn this on when you want the full original framing kept (e.g. the photo already has a clean white background and the right crop) rather than having the tool try to detect and isolate the product.</span>
   </div>
   <div class="note">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1L15 14H1L8 1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6V9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.3" r="0.9" fill="currentColor"/></svg>
@@ -259,6 +267,7 @@
   var clearBtn = document.getElementById('clearBtn');
   var exportTagsBtn = document.getElementById('exportTagsBtn');
   var alignToggle = document.getElementById('alignToggle');
+  var fitWholeToggle = document.getElementById('fitWholeToggle');
   var whiteBgToggle = document.getElementById('whiteBgToggle');
   var aiBgToggle = document.getElementById('aiBgToggle');
   var aiToggle = document.getElementById('aiToggle');
@@ -1088,7 +1097,10 @@
     countLabel.textContent = String(items.length);
 
     decodeImage(file).then(function(img){
-      var segPromise = aiBgToggle.checked ? segmentForeground(img) : Promise.resolve(null);
+      // "Fit whole photo" skips detection, whitening and AI segmentation
+      // entirely — none of them are needed (or wanted) when the photo is
+      // going in untouched — so don't even pay for the AI model call.
+      var segPromise = (aiBgToggle.checked && !fitWholeToggle.checked) ? segmentForeground(img) : Promise.resolve(null);
       return segPromise.then(function(seg){
         try{
           var canvas = document.createElement('canvas');
@@ -1101,7 +1113,11 @@
           var source = img;
           var bbox;
 
-          if(seg){
+          if(fitWholeToggle.checked){
+            // The whole original photo, untouched — no crop, no color
+            // changes, no AI. Only the scale-to-fit-and-pad step below runs.
+            bbox = null;
+          } else if(seg){
             // AI segmentation ran successfully: it supersedes both the
             // color-threshold whitening and the color-threshold bbox above
             // for this photo — the mask is already the real product outline.
@@ -1119,7 +1135,11 @@
           if(bbox){ sx = bbox.x; sy = bbox.y; sw = bbox.w; sh = bbox.h; }
           else{ sx = 0; sy = 0; sw = img.width; sh = img.height; }
 
-          var maxDim = TARGET * COVERAGE;
+          // "Fit whole photo" fills the full 2000x2000 square (no ~85%
+          // margin) since the point is to keep as much of the original
+          // framing as the square shape allows, not to zoom into a product.
+          var coverage = fitWholeToggle.checked ? 1.0 : COVERAGE;
+          var maxDim = TARGET * coverage;
           var scale = Math.min(maxDim / sw, maxDim / sh);
           var w = sw * scale, h = sh * scale;
           var x = (TARGET - w) / 2, y = (TARGET - h) / 2;
@@ -1258,13 +1278,27 @@
   // Greys out "true white background" while AI background removal is on,
   // since AI background removal supersedes it for every photo in the batch.
   function updateAiBgAvailability(){
-    var on = aiBgToggle.checked;
-    whiteBgToggle.disabled = on;
+    whiteBgToggle.disabled = fitWholeToggle.checked || aiBgToggle.checked;
     var row = whiteBgToggle.closest ? whiteBgToggle.closest('.align-row') : null;
-    if(row) row.style.opacity = on ? '0.5' : '';
+    if(row) row.style.opacity = (fitWholeToggle.checked || aiBgToggle.checked) ? '0.5' : '';
   }
   aiBgToggle.addEventListener('change', updateAiBgAvailability);
   updateAiBgAvailability();
+
+  // "Fit whole photo" bypasses cropping/detection and AI background removal
+  // entirely (see processFile), so greys those controls out while it's on —
+  // they'd otherwise look active but have no effect.
+  function updateFitWholeAvailability(){
+    var on = fitWholeToggle.checked;
+    [alignToggle, aiBgToggle].forEach(function(toggle){
+      toggle.disabled = on;
+      var row = toggle.closest ? toggle.closest('.align-row') : null;
+      if(row) row.style.opacity = on ? '0.5' : '';
+    });
+    updateAiBgAvailability();
+  }
+  fitWholeToggle.addEventListener('change', updateFitWholeAvailability);
+  updateFitWholeAvailability();
 
   function handleFiles(fileList){
     var files = Array.prototype.filter.call(fileList, function(f){ return f.type.indexOf('image/') === 0; });
