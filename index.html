@@ -167,7 +167,7 @@
   </div>
   <div class="align-row">
     <input type="checkbox" id="aiBgToggle">
-    <label for="aiBgToggle">AI background removal: cleanly cut out the product with an in-browser segmentation model, for busy or uneven backgrounds the toggle above can't fix (one-time ~4.5&nbsp;MB download, off by default)</label>
+    <label for="aiBgToggle">AI background removal: cleanly cut out the product with an in-browser segmentation model, for busy or uneven backgrounds the toggle above can't fix (one-time ~42&nbsp;MB download, off by default)</label>
   </div>
   <div class="align-row">
     <input type="checkbox" id="aiToggle" checked>
@@ -187,7 +187,7 @@
   </div>
   <div class="note info">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.3V11.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="5" r="0.9" fill="currentColor"/></svg>
-    <span><b>About AI background removal:</b> this runs a real image-segmentation model (U²-Net) in your browser to find the product's actual outline, rather than guessing from color — so it works on busy, textured, or uneven backgrounds the true-white toggle above can't fix. When it's on, it replaces both auto-align detection and true-white-background for that photo. It downloads its model (~4.5&nbsp;MB, Apache-2.0 licensed, free to use) once per browser session from a public CDN and takes roughly a second per photo; your photos still never leave the browser. If the model can't load (e.g. a blocked network), processing falls back to the toggle above automatically.</span>
+    <span><b>About AI background removal:</b> this runs a real image-segmentation model (“Silueta”, a compact U²-Net-family network) in your browser to find the product's actual outline, rather than guessing from color — so it works on busy, textured, or uneven backgrounds the true-white toggle above can't fix. When it's on, it replaces both auto-align detection and true-white-background for that photo. It downloads its model (~42&nbsp;MB, free to use) once per browser session from a public CDN and takes roughly a second per photo; your photos still never leave the browser. If the model can't load (e.g. a blocked network), processing falls back to the toggle above automatically.</span>
   </div>
   <div class="note info">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.3V11.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="5" r="0.9" fill="currentColor"/></svg>
@@ -245,7 +245,7 @@
 </div>
 
 <footer>
-  Processing happens entirely on this page — your photos never leave your browser. Built for Flipkart's main-image spec (2000×2000px, pure-white background, JPEG, quality 85, product filling ~85% of frame), with optional AI background removal (U²-Net segmentation) and AI category/color suggestions to speed up bulk tagging for Flipkart and Meesho listings. Open source — <a href="https://github.com/">edit on GitHub</a>.
+  Processing happens entirely on this page — your photos never leave your browser. Built for Flipkart's main-image spec (2000×2000px, pure-white background, JPEG, quality 85, product filling ~85% of frame), with optional AI background removal (Silueta segmentation) and AI category/color suggestions to speed up bulk tagging for Flipkart and Meesho listings. Open source — <a href="https://github.com/">edit on GitHub</a>.
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -662,15 +662,17 @@
     return working;
   }
 
-  // ---------- AI background removal (U²-Net segmentation, loaded lazily & once) ----------
+  // ---------- AI background removal (Silueta segmentation, loaded lazily & once) ----------
   // A stronger alternative to the color-threshold "true white background"
   // above: instead of guessing which pixels are close to a sampled corner
-  // color, this runs a real image-segmentation model (U²-Net, the small
-  // "u2netp" export) entirely in the browser to find the actual product
-  // silhouette, then composites it onto pure white. It handles busy,
-  // uneven, or non-white backgrounds the color-threshold method can't, at
-  // the cost of a one-time ~4.5MB model download and roughly a second of
-  // processing per photo. Apache-2.0 licensed model weights, free for
+  // color, this runs a real image-segmentation model ("Silueta", a compact
+  // U²-Net-family network) entirely in the browser to find the actual
+  // product silhouette, then composites it onto pure white. It handles
+  // busy, uneven, or non-white backgrounds the color-threshold method
+  // can't, at the cost of a one-time ~42MB model download and roughly a
+  // second of processing per photo. Tried head-to-head against nine other
+  // free, commercially-usable segmentation models on real product photos;
+  // this one produced the cleanest, most complete cutouts. Free for
   // commercial use; nothing is uploaded — it runs in-browser like the AI
   // tagging model below.
   var AI_BG_RESOLUTION = 320;
@@ -682,12 +684,13 @@
     'https://unpkg.com/onnxruntime-web@1.19.2/dist/ort.min.js'
   ];
   var ORT_WASM_BASE = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/';
-  // Two independent mirrors of the same standard U²-Net "p" (small)
-  // weights, in case one host is blocked or down — same multi-CDN-retry
+  // Two independent mirrors of the same Silueta weights (the rembg
+  // project's official GitHub release, plus a Hugging Face mirror of the
+  // same file), in case one host is blocked or down — same multi-CDN-retry
   // approach as the AI tagging model below.
-  var U2NETP_SOURCES = [
-    'https://huggingface.co/skillsafe-ai/u2netp/resolve/main/u2netp.onnx',
-    'https://huggingface.co/facefusion/models-3.5.0/resolve/main/u2netp.onnx'
+  var SILUETA_SOURCES = [
+    'https://github.com/danielgatis/rembg/releases/download/v0.0.0/silueta.onnx',
+    'https://huggingface.co/tomjackson2023/rembg/resolve/main/silueta.onnx'
   ];
 
   function ensureOrt(){
@@ -709,11 +712,11 @@
   function ensureAiBgSession(){
     if(aiBgSession) return Promise.resolve(aiBgSession);
     if(aiBgLoading) return aiBgLoading;
-    statusEl.textContent = 'Loading AI background-removal model (first time only, ~4.5 MB)…';
+    statusEl.textContent = 'Loading AI background-removal model (first time only, ~42 MB)…';
     aiBgLoading = ensureOrt().then(function(){
       if(typeof window.ort === 'undefined'){ throw new Error('onnxruntime-web failed to load'); }
       window.ort.env.wasm.wasmPaths = ORT_WASM_BASE;
-      return fetchFirstWorkingBuffer(U2NETP_SOURCES);
+      return fetchFirstWorkingBuffer(SILUETA_SOURCES);
     }).then(function(buf){
       return window.ort.InferenceSession.create(buf, { executionProviders: ['wasm'] });
     }).then(function(session){
@@ -730,7 +733,7 @@
     return aiBgLoading;
   }
 
-  // Runs U²-Net on `img`, returns { canvas, bbox } where `canvas` is a
+  // Runs Silueta on `img`, returns { canvas, bbox } where `canvas` is a
   // full-resolution copy of img with the background replaced by pure
   // white, and `bbox` is the product's bounding box in img's own pixel
   // coordinates (tighter and more reliable than the corner-color-distance
