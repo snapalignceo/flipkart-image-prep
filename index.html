@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Image Prep for Flipkart</title>
-<meta name="description" content="Batch-resize and pad product photos to Flipkart's main-image spec: 2000×2000, pure white background, JPEG Q85 — plus AI category &amp; color tagging. Runs entirely in your browser.">
+<meta name="description" content="Batch-resize and pad product photos to Flipkart's main-image spec: 2000×2000, pure white background, JPEG Q85 — plus AI background removal and category &amp; color tagging. Runs entirely in your browser.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -162,6 +162,10 @@
     <label for="whiteBgToggle">True white background: replace the backdrop color (e.g. grey/beige/marble) with pure white, not just the empty margins</label>
   </div>
   <div class="align-row">
+    <input type="checkbox" id="aiBgToggle">
+    <label for="aiBgToggle">AI background removal: cleanly cut out the product with an in-browser segmentation model, for busy or uneven backgrounds the toggle above can't fix (one-time ~4.5&nbsp;MB download, off by default)</label>
+  </div>
+  <div class="align-row">
     <input type="checkbox" id="aiToggle" checked>
     <label for="aiToggle">AI tagging: suggest a category and color for each photo (loads a small on-device model the first time, ~5–10&nbsp;MB, from a public CDN)</label>
   </div>
@@ -171,7 +175,11 @@
   </div>
   <div class="note">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1L15 14H1L8 1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6V9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.3" r="0.9" fill="currentColor"/></svg>
-    <span><b>Note:</b> this pads and resizes — it doesn't cut out a busy background. If your photo wasn't shot on a plain, even-colored background, auto-align may miscrop it. For best results, and for a true background swap, photograph on a plain white or light backdrop before uploading here.</span>
+    <span><b>Note:</b> this pads and resizes — it doesn't cut out a busy background. If your photo wasn't shot on a plain, even-colored background, auto-align may miscrop it. For best results, and for a true background swap, photograph on a plain white or light backdrop before uploading here — or turn on AI background removal above, which doesn't have this limitation.</span>
+  </div>
+  <div class="note info">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.3V11.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="5" r="0.9" fill="currentColor"/></svg>
+    <span><b>About AI background removal:</b> this runs a real image-segmentation model (U²-Net) in your browser to find the product's actual outline, rather than guessing from color — so it works on busy, textured, or uneven backgrounds the true-white toggle above can't fix. When it's on, it replaces both auto-align detection and true-white-background for that photo. It downloads its model (~4.5&nbsp;MB, Apache-2.0 licensed, free to use) once per browser session from a public CDN and takes roughly a second per photo; your photos still never leave the browser. If the model can't load (e.g. a blocked network), processing falls back to the toggle above automatically.</span>
   </div>
   <div class="note info">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.3V11.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="5" r="0.9" fill="currentColor"/></svg>
@@ -213,6 +221,7 @@
 </div>
 <div id="status"></div>
 <button class="ghost" id="retryAiBtn" hidden style="margin-top:8px;">Retry AI tagging</button>
+<button class="ghost" id="retryBgBtn" hidden style="margin-top:8px;">Retry AI background removal</button>
 
 <div id="toolbarWrap" hidden>
   <div class="toolbar">
@@ -228,7 +237,7 @@
 </div>
 
 <footer>
-  Processing happens entirely on this page — your photos never leave your browser. Built for Flipkart's main-image spec (2000×2000px, pure-white background, JPEG, quality 85, product filling ~85% of frame), with optional AI category/color suggestions to speed up bulk tagging for Flipkart and Meesho listings. Open source — <a href="https://github.com/">edit on GitHub</a>.
+  Processing happens entirely on this page — your photos never leave your browser. Built for Flipkart's main-image spec (2000×2000px, pure-white background, JPEG, quality 85, product filling ~85% of frame), with optional AI background removal (U²-Net segmentation) and AI category/color suggestions to speed up bulk tagging for Flipkart and Meesho listings. Open source — <a href="https://github.com/">edit on GitHub</a>.
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -251,8 +260,10 @@
   var exportTagsBtn = document.getElementById('exportTagsBtn');
   var alignToggle = document.getElementById('alignToggle');
   var whiteBgToggle = document.getElementById('whiteBgToggle');
+  var aiBgToggle = document.getElementById('aiBgToggle');
   var aiToggle = document.getElementById('aiToggle');
   var retryAiBtn = document.getElementById('retryAiBtn');
+  var retryBgBtn = document.getElementById('retryBgBtn');
   var repoInput = document.getElementById('repoInput');
   var branchInput = document.getElementById('branchInput');
   var tokenInput = document.getElementById('tokenInput');
@@ -642,6 +653,164 @@
     return working;
   }
 
+  // ---------- AI background removal (U²-Net segmentation, loaded lazily & once) ----------
+  // A stronger alternative to the color-threshold "true white background"
+  // above: instead of guessing which pixels are close to a sampled corner
+  // color, this runs a real image-segmentation model (U²-Net, the small
+  // "u2netp" export) entirely in the browser to find the actual product
+  // silhouette, then composites it onto pure white. It handles busy,
+  // uneven, or non-white backgrounds the color-threshold method can't, at
+  // the cost of a one-time ~4.5MB model download and roughly a second of
+  // processing per photo. Apache-2.0 licensed model weights, free for
+  // commercial use; nothing is uploaded — it runs in-browser like the AI
+  // tagging model below.
+  var AI_BG_RESOLUTION = 320;
+  var aiBgSession = null;
+  var aiBgLoading = null;
+
+  var ORT_SOURCES = [
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js',
+    'https://unpkg.com/onnxruntime-web@1.19.2/dist/ort.min.js'
+  ];
+  var ORT_WASM_BASE = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/';
+  // Two independent mirrors of the same standard U²-Net "p" (small)
+  // weights, in case one host is blocked or down — same multi-CDN-retry
+  // approach as the AI tagging model below.
+  var U2NETP_SOURCES = [
+    'https://huggingface.co/skillsafe-ai/u2netp/resolve/main/u2netp.onnx',
+    'https://huggingface.co/facefusion/models-3.5.0/resolve/main/u2netp.onnx'
+  ];
+
+  function ensureOrt(){
+    if(typeof window.ort !== 'undefined') return Promise.resolve();
+    return loadFirstWorking(ORT_SOURCES);
+  }
+
+  function fetchFirstWorkingBuffer(urls, index){
+    index = index || 0;
+    if(index >= urls.length) return Promise.reject(new Error('All model sources failed'));
+    return fetch(urls[index]).then(function(r){
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      return r.arrayBuffer();
+    }).catch(function(){
+      return fetchFirstWorkingBuffer(urls, index + 1);
+    });
+  }
+
+  function ensureAiBgSession(){
+    if(aiBgSession) return Promise.resolve(aiBgSession);
+    if(aiBgLoading) return aiBgLoading;
+    statusEl.textContent = 'Loading AI background-removal model (first time only, ~4.5 MB)…';
+    aiBgLoading = ensureOrt().then(function(){
+      if(typeof window.ort === 'undefined'){ throw new Error('onnxruntime-web failed to load'); }
+      window.ort.env.wasm.wasmPaths = ORT_WASM_BASE;
+      return fetchFirstWorkingBuffer(U2NETP_SOURCES);
+    }).then(function(buf){
+      return window.ort.InferenceSession.create(buf, { executionProviders: ['wasm'] });
+    }).then(function(session){
+      aiBgSession = session;
+      statusEl.textContent = '';
+      if(retryBgBtn) retryBgBtn.hidden = true;
+      return session;
+    }).catch(function(err){
+      aiBgLoading = null;
+      statusEl.textContent = 'AI background-removal model could not be loaded — falling back to the true-white-background toggle above.';
+      if(retryBgBtn) retryBgBtn.hidden = false;
+      throw err;
+    });
+    return aiBgLoading;
+  }
+
+  // Runs U²-Net on `img`, returns { canvas, bbox } where `canvas` is a
+  // full-resolution copy of img with the background replaced by pure
+  // white, and `bbox` is the product's bounding box in img's own pixel
+  // coordinates (tighter and more reliable than the corner-color-distance
+  // bbox above, since it comes from real segmentation rather than a color
+  // guess). Resolves to null if the model isn't available or the mask
+  // comes back empty, so callers can fall back to the simpler pipeline.
+  function segmentForeground(img){
+    return ensureAiBgSession().then(function(session){
+      var RES = AI_BG_RESOLUTION;
+      var small = document.createElement('canvas');
+      small.width = RES; small.height = RES;
+      var sctx = small.getContext('2d', { willReadFrequently: true });
+      sctx.drawImage(img, 0, 0, RES, RES);
+      var srcData = sctx.getImageData(0, 0, RES, RES).data;
+
+      var mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225];
+      var n = RES * RES;
+      var floatData = new Float32Array(3 * n);
+      for(var i = 0; i < n; i++){
+        floatData[i]       = (srcData[i*4]/255   - mean[0]) / std[0];
+        floatData[n + i]   = (srcData[i*4+1]/255 - mean[1]) / std[1];
+        floatData[2*n + i] = (srcData[i*4+2]/255 - mean[2]) / std[2];
+      }
+      var tensor = new window.ort.Tensor('float32', floatData, [1, 3, RES, RES]);
+      var feeds = {};
+      feeds[session.inputNames[0]] = tensor;
+      return session.run(feeds).then(function(out){
+        var mask = out[session.outputNames[0]].data;
+
+        // Bounding box straight from the mask, in the 320x320 grid, then
+        // scaled back to img's native pixel coordinates.
+        var minX = RES, minY = RES, maxX = -1, maxY = -1;
+        var THRESH = 0.15;
+        for(var y = 0; y < RES; y++){
+          for(var x = 0; x < RES; x++){
+            if(mask[y*RES + x] > THRESH){
+              if(x < minX) minX = x; if(x > maxX) maxX = x;
+              if(y < minY) minY = y; if(y > maxY) maxY = y;
+            }
+          }
+        }
+        var bbox = null;
+        if(maxX >= minX && maxY >= minY){
+          var padX = (maxX - minX) * 0.04, padY = (maxY - minY) * 0.04;
+          minX = Math.max(0, minX - padX); minY = Math.max(0, minY - padY);
+          maxX = Math.min(RES, maxX + padX); maxY = Math.min(RES, maxY + padY);
+          var sxr = img.width / RES, syr = img.height / RES;
+          bbox = { x: minX*sxr, y: minY*syr, w: (maxX-minX)*sxr, h: (maxY-minY)*syr };
+        }
+
+        // Build a full-resolution alpha mask by drawing the low-res mask
+        // as a white image with per-pixel alpha, then letting the canvas
+        // scale it up (bilinear) — smoother edges than a nearest-neighbour
+        // upscale, and avoids a slow per-pixel JS loop at full photo size.
+        var maskSmall = document.createElement('canvas');
+        maskSmall.width = RES; maskSmall.height = RES;
+        var mctx = maskSmall.getContext('2d');
+        var maskImgData = mctx.createImageData(RES, RES);
+        for(var i2 = 0; i2 < n; i2++){
+          maskImgData.data[i2*4] = 255; maskImgData.data[i2*4+1] = 255; maskImgData.data[i2*4+2] = 255;
+          maskImgData.data[i2*4+3] = Math.round(Math.max(0, Math.min(1, mask[i2])) * 255);
+        }
+        mctx.putImageData(maskImgData, 0, 0);
+
+        var cutout = document.createElement('canvas');
+        cutout.width = img.width; cutout.height = img.height;
+        var cctx = cutout.getContext('2d');
+        cctx.imageSmoothingEnabled = true;
+        cctx.imageSmoothingQuality = 'high';
+        cctx.drawImage(img, 0, 0, img.width, img.height);
+        cctx.globalCompositeOperation = 'destination-in';
+        cctx.drawImage(maskSmall, 0, 0, img.width, img.height);
+        cctx.globalCompositeOperation = 'source-over';
+
+        var result = document.createElement('canvas');
+        result.width = img.width; result.height = img.height;
+        var rctx = result.getContext('2d');
+        rctx.fillStyle = '#FFFFFF';
+        rctx.fillRect(0, 0, img.width, img.height);
+        rctx.drawImage(cutout, 0, 0);
+
+        return { canvas: result, bbox: bbox };
+      });
+    }).catch(function(err){
+      if(window.console && console.debug) console.debug('AI background removal skipped:', err && err.message);
+      return null;
+    });
+  }
+
   // ---------- Color naming ----------
 
   var COLOR_PALETTE = [
@@ -919,56 +1088,69 @@
     countLabel.textContent = String(items.length);
 
     decodeImage(file).then(function(img){
-      try{
-        var canvas = document.createElement('canvas');
-        canvas.width = TARGET; canvas.height = TARGET;
-        var ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0,0,TARGET,TARGET);
+      var segPromise = aiBgToggle.checked ? segmentForeground(img) : Promise.resolve(null);
+      return segPromise.then(function(seg){
+        try{
+          var canvas = document.createElement('canvas');
+          canvas.width = TARGET; canvas.height = TARGET;
+          var ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0,0,TARGET,TARGET);
 
-        var detection = detectProduct(img);
-        var bbox = alignToggle.checked ? detection.bbox : null;
-        var sx, sy, sw, sh;
-        if(bbox){ sx = bbox.x; sy = bbox.y; sw = bbox.w; sh = bbox.h; }
-        else{ sx = 0; sy = 0; sw = img.width; sh = img.height; }
+          var detection = detectProduct(img);
+          var source = img;
+          var bbox;
 
-        var source = img;
-        if(whiteBgToggle.checked){
-          var whitened = whitenBackground(img, detection.bg, 30);
-          if(whitened) source = whitened;
-        }
-
-        var maxDim = TARGET * COVERAGE;
-        var scale = Math.min(maxDim / sw, maxDim / sh);
-        var w = sw * scale, h = sh * scale;
-        var x = (TARGET - w) / 2, y = (TARGET - h) / 2;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(source, sx, sy, sw, sh, x, y, w, h);
-
-        canvas.toBlob(function(blob){
-          if(!blob){ markError(record, 'Could not encode image'); return; }
-          record.blob = blob; record.status = 'done';
-          record.outName = baseName(file.name) + '-2000x2000.jpg';
-          renderDone(record, canvas.toDataURL('image/jpeg', 0.6), blob.size);
-
-          var colorInfo = classifyColor(detection.color);
-          record.colorName = colorInfo.name;
-          applyColorToCard(record, colorInfo);
-          buildCategorySelect(record);
-
-          record.imgRef = img;
-          if(aiToggle.checked){
-            runAiTagging(record, img);
+          if(seg){
+            // AI segmentation ran successfully: it supersedes both the
+            // color-threshold whitening and the color-threshold bbox above
+            // for this photo — the mask is already the real product outline.
+            source = seg.canvas;
+            bbox = alignToggle.checked ? (seg.bbox || detection.bbox) : null;
           } else {
-            record.aiCategory = 'Uncategorized';
+            bbox = alignToggle.checked ? detection.bbox : null;
+            if(whiteBgToggle.checked){
+              var whitened = whitenBackground(img, detection.bg, 30);
+              if(whitened) source = whitened;
+            }
           }
 
-          updateSaveAllState();
-        }, 'image/jpeg', QUALITY);
-      }catch(e){
-        markError(record, 'Processing failed');
-      }
+          var sx, sy, sw, sh;
+          if(bbox){ sx = bbox.x; sy = bbox.y; sw = bbox.w; sh = bbox.h; }
+          else{ sx = 0; sy = 0; sw = img.width; sh = img.height; }
+
+          var maxDim = TARGET * COVERAGE;
+          var scale = Math.min(maxDim / sw, maxDim / sh);
+          var w = sw * scale, h = sh * scale;
+          var x = (TARGET - w) / 2, y = (TARGET - h) / 2;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(source, sx, sy, sw, sh, x, y, w, h);
+
+          canvas.toBlob(function(blob){
+            if(!blob){ markError(record, 'Could not encode image'); return; }
+            record.blob = blob; record.status = 'done';
+            record.outName = baseName(file.name) + '-2000x2000.jpg';
+            renderDone(record, canvas.toDataURL('image/jpeg', 0.6), blob.size);
+
+            var colorInfo = classifyColor(detection.color);
+            record.colorName = colorInfo.name;
+            applyColorToCard(record, colorInfo);
+            buildCategorySelect(record);
+
+            record.imgRef = img;
+            if(aiToggle.checked){
+              runAiTagging(record, img);
+            } else {
+              record.aiCategory = 'Uncategorized';
+            }
+
+            updateSaveAllState();
+          }, 'image/jpeg', QUALITY);
+        }catch(e){
+          markError(record, 'Processing failed');
+        }
+      });
     }).catch(function(err){
       markError(record, (err && err.message) || 'Could not read image');
     });
@@ -1062,6 +1244,27 @@
       });
     });
   }
+
+  if(retryBgBtn){
+    retryBgBtn.addEventListener('click', function(){
+      retryBgBtn.hidden = true;
+      statusEl.textContent = 'Retrying AI background-removal model…';
+      ensureAiBgSession().catch(function(){
+        // ensureAiBgSession already updated the status text and re-shown the button.
+      });
+    });
+  }
+
+  // Greys out "true white background" while AI background removal is on,
+  // since AI background removal supersedes it for every photo in the batch.
+  function updateAiBgAvailability(){
+    var on = aiBgToggle.checked;
+    whiteBgToggle.disabled = on;
+    var row = whiteBgToggle.closest ? whiteBgToggle.closest('.align-row') : null;
+    if(row) row.style.opacity = on ? '0.5' : '';
+  }
+  aiBgToggle.addEventListener('change', updateAiBgAvailability);
+  updateAiBgAvailability();
 
   function handleFiles(fileList){
     var files = Array.prototype.filter.call(fileList, function(f){ return f.type.indexOf('image/') === 0; });
