@@ -72,6 +72,20 @@
   .align-row{ display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink); margin-top:2px; }
   .align-row input{ width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
   .align-row label{ cursor:pointer; }
+  #privateRepoDetails{ margin-top:10px; }
+  #privateRepoDetails summary{ cursor:pointer; font-size:13.5px; font-weight:500; color:var(--ink); list-style:revert; }
+  #privateRepoDetails summary:hover{ color:var(--accent); }
+  .private-repo-panel{ margin-top:10px; padding:14px; background:var(--surface); border:1px solid var(--line); border-radius:10px; display:flex; flex-direction:column; gap:10px; }
+  .private-repo-desc{ font-size:13px; color:var(--ink-muted); line-height:1.5; margin:0; }
+  .field-row{ display:flex; gap:10px; flex-wrap:wrap; }
+  .field-row .field{ flex:1; min-width:180px; }
+  .text-input{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; padding:8px 9px; border-radius:7px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); width:100%; }
+  .private-repo-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .private-repo-help{ font-size:12px; color:var(--ink-muted); line-height:1.5; margin:0; }
+  .private-repo-help a{ color:var(--info); }
+  .private-repo-status{ font-size:12.5px; margin:0; min-height:16px; }
+  .private-repo-status.ok{ color:var(--success); }
+  .private-repo-status.err{ color:var(--warn); }
   #dropzone{ border:2px dashed var(--line); border-radius:16px; background:var(--surface); padding:36px 20px; text-align:center; cursor:pointer; transition:border-color .15s ease, background .15s ease; }
   #dropzone.drag{ border-color:var(--accent); background:var(--surface-2); }
   #dropzone svg{ margin-bottom:10px; color:var(--ink-muted); }
@@ -117,6 +131,10 @@
   .field select{ font-family:'Work Sans', sans-serif; font-size:12px; padding:6px 7px; border-radius:7px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); }
   .card .save-btn{ margin-top:auto; }
   .card .save-btn a, .card .save-btn button{ width:100%; padding:8px; font-size:12.5px; display:block; text-align:center; text-decoration:none; box-sizing:border-box; }
+  .card .private-save-btn{ margin-top:0; }
+  .card .card-status{ font-size:11.5px; color:var(--ink-muted); min-height:14px; text-align:center; }
+  .card .card-status.ok{ color:var(--success); }
+  .card .card-status.err{ color:var(--warn); }
   footer{ margin-top:44px; padding-top:18px; border-top:1px solid var(--line); color:var(--ink-muted); font-size:12.5px; line-height:1.6; }
   footer a{ color:var(--ink-muted); }
   @media (max-width:480px){ header{ margin-bottom:22px; } #dropzone{ padding:26px 14px; } .toolbar{ margin-top:22px; } }
@@ -159,11 +177,37 @@
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.3V11.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="5" r="0.9" fill="currentColor"/></svg>
     <span><b>About AI tagging:</b> category and color are suggestions from a general-purpose on-device image model (MobileNet) plus a color-averaging step — not a model trained on your specific catalog. They're a starting point to speed up bulk tagging, not a final answer: always review the dropdown on each card before you use it in a listing. The model itself downloads once from a public CDN; your photos still never leave the browser.</span>
   </div>
+  <details id="privateRepoDetails">
+    <summary>Private GitHub backup (optional)</summary>
+    <div class="private-repo-panel">
+      <p class="private-repo-desc">Save processed photos straight to a private GitHub repo you control, so nothing ever passes through a public repo's history. This talks directly from your browser to GitHub's API — I never see or store your token.</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="repoInput">Repo (owner/name)</label>
+          <input type="text" id="repoInput" placeholder="snapalignceo/flipkart-image-storage" class="text-input">
+        </div>
+        <div class="field">
+          <label for="branchInput">Branch</label>
+          <input type="text" id="branchInput" placeholder="main" class="text-input">
+        </div>
+      </div>
+      <div class="field">
+        <label for="tokenInput">Personal access token</label>
+        <input type="password" id="tokenInput" placeholder="github_pat_… or ghp_…" class="text-input" autocomplete="off">
+      </div>
+      <div class="private-repo-actions">
+        <button class="ghost" id="saveRepoSettingsBtn" type="button">Save settings</button>
+        <button class="ghost" id="clearRepoSettingsBtn" type="button">Clear saved token</button>
+      </div>
+      <p class="private-repo-help">Create a token at <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a> scoped only to this one repo, with <b>Contents: Read and write</b> permission. Settings are saved in this browser's local storage only (never sent anywhere but api.github.com).</p>
+      <p class="private-repo-status" id="privateRepoStatus"></p>
+    </div>
+  </details>
 </header>
 
 <div id="dropzone" tabindex="0" role="button" aria-label="Upload photos">
   <svg width="30" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 15V4M12 4L8 8M12 4L16 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15V17.5C4 18.8807 5.11929 20 6.5 20H17.5C18.8807 20 20 18.8807 20 17.5V15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-  <div class="dz-title">Drop photos, or click to browse</div>
+  <div class="dz-title">Drop photos, click to browse, or paste (Ctrl/Cmd+V)</div>
   <div class="dz-sub">JPEG, PNG, WEBP — any size, as many as you like</div>
   <input id="fileInput" type="file" accept="image/*" multiple>
 </div>
@@ -176,6 +220,7 @@
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <button class="ghost" id="clearBtn">Clear all</button>
       <button class="ghost" id="exportTagsBtn" disabled>Export tags (CSV)</button>
+      <button class="ghost" id="saveAllPrivateBtn" disabled>Save all to private repo</button>
       <button class="primary" id="saveAllBtn" disabled>Download all as ZIP</button>
     </div>
   </div>
@@ -208,8 +253,233 @@
   var whiteBgToggle = document.getElementById('whiteBgToggle');
   var aiToggle = document.getElementById('aiToggle');
   var retryAiBtn = document.getElementById('retryAiBtn');
+  var repoInput = document.getElementById('repoInput');
+  var branchInput = document.getElementById('branchInput');
+  var tokenInput = document.getElementById('tokenInput');
+  var saveRepoSettingsBtn = document.getElementById('saveRepoSettingsBtn');
+  var clearRepoSettingsBtn = document.getElementById('clearRepoSettingsBtn');
+  var privateRepoStatus = document.getElementById('privateRepoStatus');
+  var saveAllPrivateBtn = document.getElementById('saveAllPrivateBtn');
 
   var items = [];
+
+  // ---------- Private GitHub backup ----------
+  // Uploads processed photos straight to a private repo the user owns,
+  // using GitHub's Contents API called directly from the browser with a
+  // personal access token the user supplies. The token and repo settings
+  // are kept only in this browser's localStorage (scoped to this page's
+  // own origin) and are sent only to api.github.com — never to any other
+  // host, and never seen by anyone building or maintaining this tool.
+  var PRIVATE_REPO_STORAGE_KEY = 'fk_private_repo_settings_v1';
+
+  function loadRepoSettings(){
+    try{
+      var raw = localStorage.getItem(PRIVATE_REPO_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return null; }
+  }
+
+  function persistRepoSettings(settings){
+    try{ localStorage.setItem(PRIVATE_REPO_STORAGE_KEY, JSON.stringify(settings)); }catch(e){}
+  }
+
+  function setPrivateRepoStatus(msg, cls){
+    if(!privateRepoStatus) return;
+    privateRepoStatus.textContent = msg || '';
+    privateRepoStatus.className = 'private-repo-status' + (cls ? ' ' + cls : '');
+  }
+
+  (function initRepoSettingsUI(){
+    var saved = loadRepoSettings();
+    if(saved){
+      if(repoInput) repoInput.value = saved.repo || '';
+      if(branchInput) branchInput.value = saved.branch || '';
+      // The token itself is never re-displayed in the field once saved —
+      // only a placeholder confirming one is stored — so it isn't sitting
+      // in plain text on screen every time this page is reopened.
+      if(tokenInput && saved.token){ tokenInput.placeholder = 'Saved token in use (hidden)'; }
+    }
+    if(saveRepoSettingsBtn){
+      saveRepoSettingsBtn.addEventListener('click', function(){
+        var repo = (repoInput.value || '').trim();
+        var branch = (branchInput.value || '').trim() || 'main';
+        var tokenTyped = (tokenInput.value || '').trim();
+        var existing = loadRepoSettings() || {};
+        var token = tokenTyped || existing.token || '';
+        if(!repo || repo.indexOf('/') === -1){
+          setPrivateRepoStatus('Enter the repo as owner/name (e.g. snapalignceo/flipkart-image-storage).', 'err');
+          return;
+        }
+        if(!token){
+          setPrivateRepoStatus('Enter a personal access token before saving.', 'err');
+          return;
+        }
+        persistRepoSettings({ repo: repo, branch: branch, token: token });
+        tokenInput.value = '';
+        tokenInput.placeholder = 'Saved token in use (hidden)';
+        setPrivateRepoStatus('Settings saved in this browser.', 'ok');
+        updatePrivateSaveAvailability();
+      });
+    }
+    if(clearRepoSettingsBtn){
+      clearRepoSettingsBtn.addEventListener('click', function(){
+        try{ localStorage.removeItem(PRIVATE_REPO_STORAGE_KEY); }catch(e){}
+        repoInput.value = ''; branchInput.value = ''; tokenInput.value = '';
+        tokenInput.placeholder = 'github_pat_… or ghp_…';
+        setPrivateRepoStatus('Saved token cleared from this browser.', 'ok');
+        updatePrivateSaveAvailability();
+      });
+    }
+  })();
+
+  function hasRepoSettings(){
+    var s = loadRepoSettings();
+    return !!(s && s.repo && s.token);
+  }
+
+  function updatePrivateSaveAvailability(){
+    var doneCount = items.filter(function(i){ return i.status === 'done'; }).length;
+    if(saveAllPrivateBtn) saveAllPrivateBtn.disabled = doneCount === 0;
+    items.forEach(function(record){
+      if(record.status === 'done' && record.card){
+        var btn = record.card.querySelector('.private-save-btn button');
+        if(btn && !record.privateSaved) btn.disabled = false;
+      }
+    });
+  }
+
+  function blobToBase64(blob){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(){
+        // reader.result is a data URL; strip the "data:...;base64," prefix.
+        var result = reader.result;
+        var idx = result.indexOf(',');
+        resolve(idx === -1 ? result : result.slice(idx + 1));
+      };
+      reader.onerror = function(){ reject(new Error('Could not read the image for upload.')); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function githubApiFetch(url, settings, options){
+    options = options || {};
+    var headers = Object.assign({
+      'Authorization': 'token ' + settings.token,
+      'Accept': 'application/vnd.github+json'
+    }, options.headers || {});
+    return fetch(url, Object.assign({}, options, { headers: headers }));
+  }
+
+  // Uploads one processed image to the configured private repo via the
+  // GitHub Contents API. Checks for an existing file first (needed to
+  // supply its sha on an update) so re-uploading the same filename
+  // overwrites cleanly instead of failing.
+  async function uploadFileToPrivateRepo(record, statusTarget){
+    var settings = loadRepoSettings();
+    if(!settings || !settings.repo || !settings.token){
+      throw new Error('Add a repo and token in "Private GitHub backup" first.');
+    }
+    var branch = settings.branch || 'main';
+    var today = new Date().toISOString().slice(0, 10);
+    var path = 'images/' + today + '/' + record.outName;
+    var apiUrl = 'https://api.github.com/repos/' + settings.repo + '/contents/' + path;
+
+    if(statusTarget) statusTarget('Saving…', '');
+
+    var base64 = await blobToBase64(record.blob);
+
+    var existingSha = null;
+    var getResp = await githubApiFetch(apiUrl + '?ref=' + encodeURIComponent(branch), settings);
+    if(getResp.status === 200){
+      var existing = await getResp.json();
+      existingSha = existing.sha;
+    } else if(getResp.status !== 404){
+      if(getResp.status === 401) throw new Error('GitHub rejected the token (401). Check it was copied correctly and hasn\'t expired.');
+      if(getResp.status === 403) throw new Error('GitHub blocked the request (403) — check the token has Contents: Read & write on this repo, or you\'ve hit a rate limit.');
+      if(getResp.status === 404) throw new Error('Repo not found — check the owner/name spelling and that the token can see it.');
+      throw new Error('GitHub returned an unexpected error (' + getResp.status + ') while checking for an existing file.');
+    }
+
+    var body = {
+      message: 'Add ' + record.outName,
+      content: base64,
+      branch: branch
+    };
+    if(existingSha) body.sha = existingSha;
+
+    var putResp = await githubApiFetch(apiUrl, settings, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if(!putResp.ok){
+      if(putResp.status === 401) throw new Error('GitHub rejected the token (401). Check it was copied correctly and hasn\'t expired.');
+      if(putResp.status === 403) throw new Error('GitHub blocked the upload (403) — check the token has Contents: Read & write on this repo, or you\'ve hit a rate limit.');
+      if(putResp.status === 404) throw new Error('Repo or branch not found — check owner/name and branch, and that the token can see this repo.');
+      if(putResp.status === 422) throw new Error('GitHub rejected the request (422) — the branch name is probably wrong.');
+      throw new Error('Upload failed (' + putResp.status + ').');
+    }
+    return path;
+  }
+
+  function wirePrivateSaveButton(record){
+    var btn = record.card.querySelector('.private-save-btn button');
+    var statusEl2 = record.card.querySelector('.card-status');
+    if(!btn) return;
+    btn.disabled = !hasRepoSettings();
+    btn.addEventListener('click', function(){
+      btn.disabled = true;
+      var original = btn.textContent;
+      btn.textContent = 'Saving…';
+      if(statusEl2){ statusEl2.textContent = ''; statusEl2.className = 'card-status'; }
+      uploadFileToPrivateRepo(record).then(function(path){
+        record.privateSaved = true;
+        btn.textContent = 'Saved ✓';
+        if(statusEl2){ statusEl2.textContent = 'Saved to ' + path; statusEl2.className = 'card-status ok'; }
+      }).catch(function(err){
+        btn.disabled = false;
+        btn.textContent = original;
+        if(statusEl2){ statusEl2.textContent = (err && err.message) || 'Save failed.'; statusEl2.className = 'card-status err'; }
+      });
+    });
+  }
+
+  if(saveAllPrivateBtn){
+    saveAllPrivateBtn.addEventListener('click', async function(){
+      if(!hasRepoSettings()){
+        setPrivateRepoStatus('Add a repo and token above first.', 'err');
+        return;
+      }
+      var done = items.filter(function(i){ return i.status === 'done' && !i.privateSaved; });
+      if(done.length === 0) return;
+      saveAllPrivateBtn.disabled = true;
+      var originalLabel = saveAllPrivateBtn.textContent;
+      var failCount = 0;
+      for(var i = 0; i < done.length; i++){
+        var record = done[i];
+        saveAllPrivateBtn.textContent = 'Saving ' + (i + 1) + ' / ' + done.length + '…';
+        var btn = record.card && record.card.querySelector('.private-save-btn button');
+        var statusEl3 = record.card && record.card.querySelector('.card-status');
+        try{
+          var path = await uploadFileToPrivateRepo(record);
+          record.privateSaved = true;
+          if(btn){ btn.disabled = true; btn.textContent = 'Saved ✓'; }
+          if(statusEl3){ statusEl3.textContent = 'Saved to ' + path; statusEl3.className = 'card-status ok'; }
+        }catch(err){
+          failCount++;
+          if(statusEl3){ statusEl3.textContent = (err && err.message) || 'Save failed.'; statusEl3.className = 'card-status err'; }
+        }
+      }
+      saveAllPrivateBtn.textContent = originalLabel;
+      updatePrivateSaveAvailability();
+      if(failCount > 0){
+        setPrivateRepoStatus(failCount + ' of ' + done.length + ' uploads failed — see the errors on those cards.', 'err');
+      } else {
+        setPrivateRepoStatus('Saved ' + done.length + ' photo' + (done.length === 1 ? '' : 's') + ' to the private repo.', 'ok');
+      }
+    });
+  }
 
   // ---------- Robust image decoding ----------
   // The plain `new Image()` + object-URL path fails to decode a small
@@ -559,6 +829,7 @@
     saveAllBtn.disabled = doneCount === 0;
     saveAllBtn.textContent = doneCount > 1 ? ('Download all as ZIP (' + doneCount + ')') : 'Download all as ZIP';
     exportTagsBtn.disabled = doneCount === 0;
+    updatePrivateSaveAvailability();
   }
 
   function humanKB(bytes){ return Math.round(bytes/1024) + ' KB'; }
@@ -584,6 +855,8 @@
         '<div class="tag-row tagRowEl"></div>' +
         '<div class="field"><label>Category</label><select class="categorySelect" disabled></select></div>' +
         '<div class="save-btn"><button disabled>Download</button></div>' +
+        '<div class="save-btn private-save-btn"><button class="ghost" disabled>Save to private repo</button></div>' +
+        '<div class="card-status"></div>' +
       '</div>';
     grid.appendChild(card);
     return card;
@@ -724,6 +997,8 @@
     btn.disabled = false;
     btn.textContent = 'Download';
     btn.onclick = function(){ downloadBlob(record.blob, record.outName); };
+
+    wirePrivateSaveButton(record);
   }
 
   saveAllBtn.addEventListener('click', async function(){
@@ -769,6 +1044,7 @@
 
   clearBtn.addEventListener('click', function(){
     items = []; grid.innerHTML = ''; toolbarWrap.hidden = true; statusEl.textContent = '';
+    if(saveAllPrivateBtn) saveAllPrivateBtn.disabled = true;
   });
 
   if(retryAiBtn){
@@ -807,6 +1083,40 @@
   dropzone.addEventListener('drop', function(e){
     e.preventDefault();
     if(e.dataTransfer && e.dataTransfer.files) handleFiles(e.dataTransfer.files);
+  });
+
+  // Paste support: works anywhere on the page (not just when the dropzone
+  // is focused), so a screenshot or a copied product photo can be dropped
+  // in with Ctrl/Cmd+V without first clicking into anything. Skipped while
+  // the user is pasting into a text field (e.g. editing a filename) so a
+  // routine text paste there doesn't get mistaken for an image upload.
+  var pasteCounter = 0;
+  document.addEventListener('paste', function(e){
+    var target = e.target;
+    var isTextInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+    if(isTextInput) return;
+    var clipboardItems = (e.clipboardData && e.clipboardData.items) || [];
+    var pastedFiles = [];
+    for(var i = 0; i < clipboardItems.length; i++){
+      var item = clipboardItems[i];
+      if(item.kind === 'file' && item.type.indexOf('image/') === 0){
+        var file = item.getAsFile();
+        if(file){
+          // Pasted images (e.g. screenshots) often have no useful name —
+          // give them one so the downloaded filename isn't just "image.png".
+          if(!file.name || file.name === 'image.png' || file.name === 'blob'){
+            pasteCounter++;
+            var ext = (file.type.split('/')[1] || 'png').split('+')[0];
+            file = new File([file], 'pasted-image-' + pasteCounter + '.' + ext, { type: file.type });
+          }
+          pastedFiles.push(file);
+        }
+      }
+    }
+    if(pastedFiles.length > 0){
+      e.preventDefault();
+      handleFiles(pastedFiles);
+    }
   });
 })();
 </script>
